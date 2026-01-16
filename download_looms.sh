@@ -22,7 +22,7 @@ NC='\033[0m' # No Color
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --dry-run)
+        --trial-run)
             DRY_RUN=true
             shift
             ;;
@@ -36,7 +36,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         -*)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--dry-run] [--verbose] [-o OUTPUT_DIR] [INPUT_FILE]"
+            echo "Usage: $0 [--trial-run] [--verbose] [-o OUTPUT_DIR] [INPUT_FILE]"
             exit 1
             ;;
         *)
@@ -174,7 +174,7 @@ if [ "$DRY_RUN" = true ]; then
     download_video "$FIRST_URL"
     
     echo -e "\n${GREEN}=== DRY RUN COMPLETE ===${NC}"
-    echo -e "${YELLOW}If successful, run without --dry-run to download all videos${NC}"
+    echo -e "${YELLOW}If successful, run without --trial-run to download all videos${NC}"
     exit 0
 fi
 
