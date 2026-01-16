@@ -1,10 +1,14 @@
 #!/bin/bash
 
 # Loom Video Downloader with Audio Verification
-# Only downloads videos that have audio streams
-# Properly merges separate video+audio streams into single MP4
+# Features:
+# - Pre-download audio detection: skips videos without audio streams
+# - Idempotent: checks if file already exists with valid audio before downloading
+# - Smart format selection: prioritizes MP4, falls back to best video+audio merge
+# - Proper stream merging: combines separate video/audio into a single MP4 using ffmpeg
+# - Post-download validation: verifies audio exists in downloaded files
+# - Clean output: automatically removes temporary .webm files after merge
 
-set -e  # Exit on error
 
 # Configuration
 OUTPUT_DIR="."
@@ -117,6 +121,23 @@ download_video() {
     
     echo -e "${GREEN}✓ Audio stream detected${NC}"
     
+    # Get the expected output filename
+    local expected_file=$(yt-dlp --get-filename --output "$OUTPUT_DIR/%(title)s.mp4" "$url" 2>/dev/null)
+    
+    # Check if file already exists
+    if [ -f "$expected_file" ]; then
+        echo -e "${YELLOW}File already exists: $(basename "$expected_file")${NC}"
+        
+        # Verify it's a valid video file with audio
+        if ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$expected_file" 2>/dev/null | grep -q .; then
+            echo -e "${GREEN}✓ File is valid with audio - skipping download${NC}"
+            return 2  # Return 2 to indicate "already exists"
+        else
+            echo -e "${YELLOW}⚠️  Existing file appears invalid or has no audio - re-downloading${NC}"
+            rm -f "$expected_file"
+        fi
+    fi
+    
     # Download with proper format selection and merging
     # Priority:
     # 1. http-transcoded (pre-merged MP4 with audio)
@@ -184,14 +205,20 @@ echo -e "${GREEN}Downloading to $OUTPUT_DIR...${NC}\n"
 
 SUCCESS_COUNT=0
 SKIP_COUNT=0
+ALREADY_EXISTS_COUNT=0
 FAIL_COUNT=0
 
 while IFS= read -r url || [ -n "$url" ]; do
     # Skip empty lines and comments
     [[ -z "$url" || "$url" =~ ^[[:space:]]*# ]] && continue
     
-    if download_video "$url"; then
+    download_video "$url"
+    result=$?
+    
+    if [ $result -eq 0 ]; then
         ((SUCCESS_COUNT++))
+    elif [ $result -eq 2 ]; then
+        ((ALREADY_EXISTS_COUNT++))
     else
         if has_audio "$url"; then
             ((FAIL_COUNT++))
@@ -207,6 +234,7 @@ echo -e "\n${BLUE}================================================${NC}"
 echo -e "${BLUE}SUMMARY${NC}"
 echo -e "${BLUE}================================================${NC}"
 echo -e "${GREEN}Successfully downloaded: $SUCCESS_COUNT${NC}"
+echo -e "${BLUE}Already existed: $ALREADY_EXISTS_COUNT${NC}"
 echo -e "${YELLOW}Skipped (no audio): $SKIP_COUNT${NC}"
 echo -e "${RED}Failed: $FAIL_COUNT${NC}"
 echo -e "\n${GREEN}Done!${NC}"
