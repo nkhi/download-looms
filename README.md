@@ -20,7 +20,11 @@ chmod +x download_looms.sh && ./download_looms.sh
 ```
 ```
 # download only the first video
-./download_looms.sh --trial-run 
+./download_looms.sh --trial-run
+
+# download .webm instead of .mp4
+# can use with --trial-run or --verbose too
+./download_looms.sh --webm
 
 # extra logging
 ./download_looms.sh --verbose
